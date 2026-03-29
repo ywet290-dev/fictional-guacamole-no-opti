@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Optimization Testing Tool</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard-wrapper">
+        <header>
+            <h1>Server <span>Stress Tester</span></h1>
+            <p>Monitor your server's memory under heavy DMs, voice, images, and data payloads.</p>
+        </header>
+
+        <main>
+            <!-- Server Connection Settings -->
+            <section class="card settings-card">
+                <h2>Connection Target</h2>
+                <div class="input-group">
+                    <input type="text" id="target-url" value="/api" />
+                    <button class="btn primary" id="btn-ping">TEST CONNECTION</button>
+                </div>
+                <div class="server-status">
+                    Status: <span id="status-badge" class="badge idle">Idle</span>
+                    | Tracked Cache Size: <span id="cache-size" class="highlight">0 MB</span>
+                </div>
+            </section>
+
+            <section class="control-panel">
+                <div class="card request-card">
+                    <h2>Mock Payloads</h2>
+                    <p class="subtitle">Clicking these buttons simulates heavy fetching operations.</p>
+                    
+                    <div class="button-grid">
+                        <button class="btn" onclick="fetchPayload('data')">Fetch Data (JSON)</button>
+                        <button class="btn" onclick="fetchPayload('dms')">Fetch Massive DMs</button>
+                        <button class="btn" onclick="fetchPayload('voice')">Fetch Voice Stream</button>
+                        <button class="btn" onclick="fetchPayload('image')">Fetch Image Blob</button>
+                        <button class="btn" onclick="fetchPayload('video')">Fetch Video Blob</button>
+                    </div>
+
+                    <div class="spam-controls">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="spam-mode">
+                            <span class="slider"></span>
+                        </label>
+                        <span class="toggle-label">Enable Spam Mode (<span id="spam-rate">5</span> req/sec)</span>
+                        <input type="range" id="spam-slider" min="1" max="20" value="5">
+                    </div>
+                </div>
+
+                <div class="card logs-card">
+                    <h2>Live Activity Log</h2>
+                    <div id="logs" class="logs-container">
+                        <!-- Logs injected by js -->
+                        <div class="log-entry info">System initialized. Waiting for requests...</div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
