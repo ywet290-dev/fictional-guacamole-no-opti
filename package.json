@@ -1,0 +1,14 @@
+{
+  "name": "discord-sendall-bot",
+  "version": "1.0.0",
+  "description": "Discord bot with /sendall command — Vercel deployment",
+  "main": "api/interactions.js",
+  "scripts": {
+    "deploy-commands": "node deploy-commands.js",
+    "dev": "vercel dev"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "tweetnacl": "^1.0.3"
+  }
+}
