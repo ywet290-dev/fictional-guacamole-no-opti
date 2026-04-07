@@ -49,8 +49,9 @@ exports.handler = async function (event, context) {
     const host = event.headers.host;
     const protocol = host.includes('localhost') ? 'http' : 'https';
     
-    // We send a POST request to our background function without awaiting it
-    fetch(`${protocol}://${host}/.netlify/functions/sendall-background`, {
+    // We await the background function trigger so Netlify doesn't kill the container 
+    // before the HTTP request is fully transmitted. Background functions return 202 instantly.
+    await fetch(`${protocol}://${host}/.netlify/functions/sendall-background`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(interaction)
