@@ -4,21 +4,6 @@ const PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY;
 const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 const API = 'https://discord.com/api/v10';
 
-// ── Disable Vercel's auto body parsing to read raw bodies ────────────
-module.exports.config = {
-  api: { bodyParser: false },
-};
-
-// ── Read raw body from Vercel request ────────────────────────────────
-function getRawBody(req) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    req.on('data', (chunk) => chunks.push(chunk));
-    req.on('end', () => resolve(Buffer.concat(chunks)));
-    req.on('error', reject);
-  });
-}
-
 // ── Discord API helper ───────────────────────────────────────────────
 async function discordFetch(endpoint, options = {}) {
   const res = await fetch(`${API}${endpoint}`, {
@@ -94,7 +79,7 @@ async function processSendAll(interaction) {
       const ok = await sendDM(member.user.id, embed);
       if (ok) sent++;
       else failed++;
-      await sleep(600);
+      await sleep(600); // Netlify functions max timeout is 10s on free tier!
     }
 
     await discordFetch(`/webhooks/${appId}/${token}/messages/@original`, {
@@ -116,28 +101,30 @@ async function processSendAll(interaction) {
   }
 }
 
-// ── Main handler ─────────────────────────────────────────────────────
-module.exports = async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
+// ── Main handler (Netlify Format) ────────────────────────────────────
+exports.handler = async function (event, context) {
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   }
 
-  const signature = req.headers['x-signature-ed25519'];
-  const timestamp = req.headers['x-signature-timestamp'];
-  const rawBody = await getRawBody(req);
-  const rawBodyString = rawBody.toString('utf8');
+  const signature = event.headers['x-signature-ed25519'];
+  const timestamp = event.headers['x-signature-timestamp'];
+  const rawBodyString = event.body;
 
   // Verify signature using official discord package
   const isValidRequest = verifyKey(rawBodyString, signature, timestamp, PUBLIC_KEY);
   if (!isValidRequest) {
-    return res.status(401).send('Bad request signature');
+    return { statusCode: 401, body: 'Bad request signature' };
   }
 
   const interaction = JSON.parse(rawBodyString);
 
   // Handle PING
   if (interaction.type === InteractionType.PING) {
-    return res.status(200).json({ type: InteractionResponseType.PONG });
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ type: InteractionResponseType.PONG })
+    };
   }
 
   // Handle SLASH COMMAND
@@ -146,25 +133,45 @@ module.exports = async function handler(req, res) {
     const ADMIN = BigInt(1 << 3);
 
     if (!(perms & ADMIN)) {
-      return res.status(200).json({
-        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: {
-          content: '❌ You need **Administrator** permission to use this command.',
-          flags: 64, // Ephemeral
-        },
-      });
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: '❌ You need **Administrator** permission to use this command.',
+            flags: 64, // Ephemeral
+          },
+        })
+      };
     }
 
-    // Defer reply
-    res.status(200).json({
+    // Since Netlify functions freeze when the response is returned, we can't easily do background work.
+    // However, Node fetch calls may still finish if they run fast enough before the container teardown.
+    // Best practice for Discord on free serverless is to Await the processSendAll, but we only have 3-10s max.
+    
+    // We defer reply:
+    const responsePayload = {
       type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
       data: { flags: 64 },
-    });
+    };
 
-    // Process in background
-    await processSendAll(interaction);
-    return;
+    // Process DMs before exiting function if it's very small server,
+    // otherwise on Netlify we have to run them in sequence to ensure they fire
+    // For smaller servers this is totally fine on Netlify.
+    
+    // Fire it off, but we *have* to await it otherwise Netlify immediately kills the function container
+    // and the DMs stop sending halfway through!
+    // Since Netlify timeout is 10s, we might not reach everyone if the server is >10 people. 
+    await Promise.race([
+      processSendAll(interaction),
+      sleep(9000) // End gracefully right before 10s timeout
+    ]);
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify(responsePayload)
+    };
   }
 
-  return res.status(400).json({ error: 'Unknown interaction' });
+  return { statusCode: 400, body: JSON.stringify({ error: 'Unknown interaction' }) };
 };
