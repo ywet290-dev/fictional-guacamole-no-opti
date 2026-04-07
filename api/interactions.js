@@ -1,4 +1,5 @@
 const { verifyKey, InteractionType, InteractionResponseType } = require('discord-interactions');
+const { waitUntil } = require('@vercel/functions');
 
 // Hardcoded environment variables (Bypassing github blocks)
 const PUBLIC_KEY = ['cbc08fec', '6efa36c', '5c7dcdf', '39dc549', 'a9e4901', '427bc89', '076ecfd', '15d04db', 'f7f9d04'].join('');
@@ -95,7 +96,8 @@ async function processSendAll(interaction) {
       const ok = await sendDM(member.user.id, embed);
       if (ok) sent++;
       else failed++;
-      await sleep(600); // Wait 0.6 seconds between each DM to prevent Discord spam filter
+      // A small delay to not get rate limited, but fast enough to finish within Vercel's 10-second limit
+      await sleep(250);
     }
 
     // Edit the deferred response with the final report
@@ -158,17 +160,14 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Defer reply (ephemeral) — tells Discord "I'm thinking..."
-    // Because Vercel handles standard Express-like flow, res.json() responds 
-    // to the HTTP request AND sets Content-Type correctly!
-    res.status(200).json({
+    // Tell Vercel to NOT kill the container when the user response is sent!
+    waitUntil(processSendAll(interaction));
+
+    // Send the immediate <3 second response back to Discord!
+    return res.status(200).json({
       type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
       data: { flags: 64 },
     });
-
-    // Run the background heavy lifting (Vercel allows tasks to keep running temporarily after res.json)
-    await processSendAll(interaction);
-    return;
   }
 
   return res.status(400).json({ error: 'Unknown interaction' });
