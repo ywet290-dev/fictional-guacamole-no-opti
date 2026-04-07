@@ -22,6 +22,7 @@ exports.handler = async function (event, context) {
   if (interaction.type === InteractionType.PING) {
     return {
       statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: InteractionResponseType.PONG })
     };
   }
@@ -34,6 +35,7 @@ exports.handler = async function (event, context) {
     if (!(perms & ADMIN)) {
       return {
         statusCode: 200,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
@@ -60,6 +62,7 @@ exports.handler = async function (event, context) {
     // Return IMMEDIATELY so Discord doesn't timeout!
     return {
       statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
         data: { flags: 64 }, // Ephemeral message "bot is thinking..."
